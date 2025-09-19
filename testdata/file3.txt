@@ -1,0 +1,2 @@
+the golang concurrency model uses channels 
+a project can have many channels

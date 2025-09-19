@@ -1,0 +1,2 @@
+hello world from the golang project 
+learning about go concurrency is fun
