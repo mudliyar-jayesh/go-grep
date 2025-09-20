@@ -10,8 +10,6 @@ import (
 	"sync"
 )
 
-type InvertedIndex map[string]map[string]struct{}
-
 type FileData struct {
 	Path    string
 	Content []byte
@@ -47,7 +45,7 @@ func readFile(filePaths <-chan string, fileContents chan<- FileData, wg *sync.Wa
 	}
 }
 
-func indexContent(fileContents <-chan FileData, index InvertedIndex, wg *sync.WaitGroup) {
+func indexContent(fileContents <-chan FileData, trie *Trie, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for data := range fileContents {
 		scanner := bufio.NewScanner(strings.NewReader(string(data.Content)))
@@ -55,12 +53,7 @@ func indexContent(fileContents <-chan FileData, index InvertedIndex, wg *sync.Wa
 
 		for scanner.Scan() {
 			word := strings.ToLower(scanner.Text())
-
-			if _, ok := index[word]; !ok {
-				index[word] = make(map[string]struct{})
-			}
-
-			index[word][data.Path] = struct{}{}
+			trie.Insert(word, data.Path)
 		}
 	}
 }
@@ -87,8 +80,8 @@ func main() {
 
 	var indexerWg sync.WaitGroup
 	indexerWg.Add(1)
-	index := make(InvertedIndex)
-	go indexContent(fileContents, index, &indexerWg)
+	trie := NewTrie()
+	go indexContent(fileContents, trie, &indexerWg)
 
 	wg.Wait()
 	close(fileContents)
@@ -96,14 +89,14 @@ func main() {
 
 	log.Println("Index built successfully")
 
-	results, found := index[searchTerm]
-	if !found {
+	results := trie.Search(searchTerm)
+	if len(results) == 0 {
 		fmt.Printf("\nNo results found for '%s'.\n", searchTerm)
 		return
 	}
 
 	fmt.Printf("\nFound '%s' in the following files:\n", searchTerm)
-	for path := range results {
+	for _, path := range results {
 		fmt.Printf("- %s\n", path)
 	}
 }
